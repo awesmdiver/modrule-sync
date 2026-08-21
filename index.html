@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ModruleSync</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <h1>🧭 ModruleSync</h1>
+  <p class="app-header__tagline">Transplant curated PGPatcher priority orders onto your local mod list.</p>
+</header>
+
+<main class="app-main">
+
+  <!-- ============ 1. Upload ============ -->
+  <section id="screenUpload" class="screen">
+    <h2>Apply priorities from another modrules.json</h2>
+    <p class="lead">Upload the author's file and your own — nothing leaves your browser.</p>
+
+    <div class="upload-row">
+      <div class="drop-card" id="dropAuthor" data-slot="author">
+        <div class="drop-card__empty">
+          <div class="drop-card__icon">📤</div>
+          <div class="drop-card__title">Author's modrules.json</div>
+          <div class="drop-card__hint">Drag &amp; drop, or click to browse</div>
+          <button type="button" class="btn btn--ghost btn--small" id="chooseAuthorBtn">Choose file</button>
+        </div>
+        <div class="drop-card__filled hidden">
+          <div class="drop-card__icon">✅</div>
+          <div class="drop-card__title">Author's modrules.json</div>
+          <div class="drop-card__file" id="authorFileName"></div>
+          <div class="drop-card__meta" id="authorFileMeta"></div>
+        </div>
+      </div>
+      <div class="drop-card" id="dropUser" data-slot="user">
+        <div class="drop-card__empty">
+          <div class="drop-card__icon">📤</div>
+          <div class="drop-card__title">Your modrules.json</div>
+          <div class="drop-card__hint">Drag &amp; drop, or click to browse</div>
+          <button type="button" class="btn btn--ghost btn--small" id="chooseUserBtn">Choose file</button>
+        </div>
+        <div class="drop-card__filled hidden">
+          <div class="drop-card__icon">✅</div>
+          <div class="drop-card__title">Your modrules.json</div>
+          <div class="drop-card__file" id="userFileName"></div>
+          <div class="drop-card__meta" id="userFileMeta"></div>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="authorFileInput" accept="application/json,.json" class="visually-hidden" />
+    <input type="file" id="userFileInput" accept="application/json,.json" class="visually-hidden" />
+
+    <div class="privacy-note">
+      🔒 <span><b>Nothing is uploaded anywhere.</b> Both files are read and matched entirely in your
+      browser — no server, no account, no data leaves this page.</span>
+    </div>
+
+    <div id="uploadError" class="error-box hidden"></div>
+
+    <div class="upload-actions">
+      <button type="button" class="btn" id="buildReportBtn" disabled>Match mods →</button>
+    </div>
+  </section>
+
+  <!-- ============ 2. Match report ============ -->
+  <section id="screenReport" class="screen hidden">
+    <h2>Match report</h2>
+    <p class="lead" id="reportSummary"></p>
+
+    <div class="bucket-grid">
+      <div class="bucket bucket--exact" id="bucketExact">
+        <div class="bucket__head" data-bucket="exact">
+          <span class="bucket__icon">●</span>
+          <span class="bucket__title">Matched exactly</span>
+          <span class="bucket__count" id="bucketExactCount"></span>
+          <span class="bucket__caret">▾ show list</span>
+        </div>
+        <div class="bucket__body hidden">
+          <div class="bucket__body-list" id="bucketExactList"></div>
+        </div>
+      </div>
+
+      <div class="bucket bucket--normalized" id="bucketNormalized">
+        <div class="bucket__head" data-bucket="normalized">
+          <span class="bucket__icon">◐</span>
+          <span class="bucket__title">Matched via normalization</span>
+          <span class="bucket__count" id="bucketNormalizedCount"></span>
+          <span class="flag-note">ⓘ version-number differences ignored</span>
+          <span class="bucket__caret" style="margin-left:auto;">▾ show list</span>
+        </div>
+        <div class="bucket__body hidden">
+          <div class="bucket__body-list" id="bucketNormalizedList"></div>
+        </div>
+      </div>
+
+      <div class="bucket bucket--review" id="bucketReview">
+        <div class="bucket__head">
+          <span class="bucket__icon">⚠</span>
+          <span class="bucket__title">Needs your review</span>
+          <span class="bucket__count" id="bucketReviewCount"></span>
+        </div>
+      </div>
+
+      <div class="bucket bucket--new" id="bucketNew">
+        <div class="bucket__head">
+          <span class="bucket__icon">＋</span>
+          <span class="bucket__title">New / unmatched</span>
+          <span class="bucket__count" id="bucketNewCount"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="upload-actions">
+      <button type="button" class="btn btn--ghost" id="reportBackBtn">← Start over</button>
+      <button type="button" class="btn" id="reportContinueBtn">Continue →</button>
+    </div>
+  </section>
+
+  <!-- ============ 3. Reconciliation ============ -->
+  <section id="screenReconcile" class="screen hidden">
+    <h2>Confirm these before continuing</h2>
+    <p class="lead">
+      These couldn't be matched automatically. Confirm a pairing, or mark it as a different mod —
+      nothing here is applied until you say so.
+    </p>
+
+    <div id="reconcileRows"></div>
+
+    <div id="reconcileNudge" class="callout callout--warning hidden"></div>
+
+    <div class="upload-actions">
+      <button type="button" class="btn btn--ghost" id="reconcileBackBtn">← Back to report</button>
+      <button type="button" class="btn" id="reconcileContinueBtn">Continue to sort →</button>
+    </div>
+  </section>
+
+  <!-- ============ 4. Sort screen ============ -->
+  <section id="screenSort" class="screen hidden">
+    <h2>Review the merged order</h2>
+    <p class="lead" id="sortLead"></p>
+
+    <div class="pgp-panels">
+      <div class="pgp-panel pgp-panel--ranked">
+        <div class="pgp-panel__head"><span>Ranked (priority order)</span><span id="rankedCount">0</span></div>
+        <div class="pgp-toolbar--panel">
+          <input class="pgp-search" id="rankedSearchInput" type="text" placeholder="Filter by mod name…">
+          <div class="pgp-toolbar__sep"></div>
+          <button type="button" class="pgp-link-btn" id="rankedSortAzBtn">Sort A–Z</button>
+          <button type="button" class="pgp-link-btn" id="rankedPriorityOrderBtn" title="Restore priority order (undoes Sort A–Z; keeps anything dragged in since)">Priority order</button>
+          <button type="button" class="pgp-link-btn" id="rankedSelectAllBtn">Select all</button>
+          <button type="button" class="pgp-link-btn" id="rankedInvertBtn">Invert selection</button>
+          <button type="button" class="pgp-link-btn" id="rankedClearSelBtn">Clear selection</button>
+          <span class="pgp-selcount" id="rankedSelectionCount"></span>
+        </div>
+        <div class="pgp-col-header">
+          <span style="width:14px;"></span><span style="width:14px;"></span><span style="width:30px;">#</span><span style="flex:1;">Mod</span>
+        </div>
+        <div class="pgp-panel__body" id="rankedList"></div>
+      </div>
+
+      <div class="pgp-panel">
+        <div class="pgp-panel__head"><span>New mods</span><span id="unrankedCount">0</span></div>
+        <div class="pgp-toolbar--panel">
+          <input class="pgp-search" id="unrankedSearchInput" type="text" placeholder="Filter by mod name…">
+          <div class="pgp-toolbar__sep"></div>
+          <button type="button" class="pgp-link-btn" id="unrankedSortAzBtn">Sort A–Z</button>
+          <button type="button" class="pgp-link-btn" id="unrankedSelectAllBtn">Select all</button>
+          <button type="button" class="pgp-link-btn" id="unrankedInvertBtn">Invert selection</button>
+          <button type="button" class="pgp-link-btn" id="unrankedClearSelBtn">Clear selection</button>
+          <span class="pgp-selcount" id="unrankedSelectionCount"></span>
+        </div>
+        <div class="pgp-unranked-hint">Not in the author's file. Drag into the ranked list to give one a real priority.</div>
+        <div class="pgp-col-header">
+          <span style="width:14px;"></span><span style="flex:1;">Mod</span>
+        </div>
+        <div class="pgp-panel__body" id="unrankedList"></div>
+      </div>
+    </div>
+
+    <div class="upload-actions">
+      <button type="button" class="btn btn--ghost" id="sortBackBtn">← Back</button>
+      <button type="button" class="btn" id="sortContinueBtn">Continue →</button>
+    </div>
+  </section>
+
+  <!-- ============ 5. Download ============ -->
+  <section id="screenDownload" class="screen hidden">
+    <div class="download-card">
+      <div class="download-card__title">✅ Your merged modrules.json is ready</div>
+      <div class="download-card__hint">Drop it straight into PGPatcher's own cfg folder.</div>
+      <a class="btn" id="downloadBtn" download="modrules.json">⬇ Download modrules.json</a>
+    </div>
+    <div class="upload-actions" style="justify-content:center;">
+      <button type="button" class="btn btn--ghost" id="startOverBtn">Start over</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="match-engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

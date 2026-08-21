@@ -39,6 +39,6 @@ matching engine, the merge format) — not yet, since nothing's built here.
 
 ## End every task with a handoff
 
-Per the workspace's own two-seat workflow, write a wrap-up to
-`vortex-tools/vortex-collection-tools/prompts/handoff-latest.md` — that's where the board/queue loop
-for this tool currently lives, even though the code itself is in this separate repo.
+Per the workspace's own two-seat workflow, write a wrap-up to this repo's own
+`prompts/handoff-latest.md` (overwrite each time — ephemeral, gitignore it once real history exists,
+matching every other tracked project in this workspace).

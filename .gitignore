@@ -1,2 +1,14 @@
 prompts/handoff-latest.md
 prompts/handoffs/
+
+# Board-owned lifecycle state (claude-workflow-board) -- checkoff/sent-session state, never committed
+prompts/.board-state.json
+
+# Rotating recovery backups of .board-state.json (claude-workflow-board, queue: board-state-backup-rotation) -- never committed
+prompts/.board-state.json.bak*
+
+# Session action log (claude-workflow-board) -- board actions + undo state, not code history
+prompts/.session-log.json
+
+# SQLite hybrid-architecture spike index (derived + rebuildable -- BUILD-PROMPT-sqlite-hybrid-spike.md)
+prompts/.board-index.sqlite*

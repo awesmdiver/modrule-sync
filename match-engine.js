@@ -78,7 +78,13 @@ var ModruleSyncEngine = (function () {
     var floor = opts.fuzzyFloor != null ? opts.fuzzyFloor : DEFAULT_FUZZY_FLOOR;
     var maxCandidates = opts.maxCandidates != null ? opts.maxCandidates : MAX_CANDIDATES;
 
-    var remaining = new Set(Object.keys(authorRules)); // author names not yet claimed
+    // Author names not yet claimed. Restricted to entries the author actually curated a priority
+    // for (priority !== -1, i.e. enabled) -- the rest of a real modrules.json is just every mod
+    // PGPatcher scanned with nothing to transplant, and matching against those produced pure-noise
+    // candidates (a name coincidentally close to an unrelated, unconfigured mod).
+    var remaining = new Set(Object.keys(authorRules).filter(function (name) {
+      return priorityOf(authorRules, name) !== -1;
+    }));
     var exact = [];
     var normalized = [];
     var review = [];

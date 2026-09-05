@@ -8,10 +8,14 @@
 // local file:// open too, not just over http.
 
 var ModruleSyncEngine = (function () {
-  var DEFAULT_FUZZY_FLOOR = 0.45; // spec's own design-review note: bias loose, not tight -- every
-                                   // fuzzy candidate already requires human confirmation, so a spare
-                                   // low-quality suggestion costs a glance; a real match silently
-                                   // missing costs the user noticing and hunting for it by hand.
+  // Real false positives found live (2026-09-05): "Karin follower or replacer fomod" matched
+  // "Guards Armor Replacer PBR" at 47%, "Lunar Weapons Replacer" matched it at 48% -- character-level
+  // edit distance (see levenshteinDistance/similarity below, still used for exact-length-ish typo
+  // cases) treats two names as close whenever they happen to share a long common substring like
+  // "replacer", regardless of whether that word is actually distinguishing. Lowered once the fuzzy
+  // tier switched to weightedTokenSimilarity below, which doesn't have this failure mode -- an
+  // unrelated pair sharing only generic/common words now scores near 0, not 45-50%.
+  var DEFAULT_FUZZY_FLOOR = 0.4;
   var MAX_CANDIDATES = 5;
 
   // Spec's own exact regex: strip a trailing run of space-separated numeric/version-ish tokens, then
@@ -60,6 +64,53 @@ var ModruleSyncEngine = (function () {
     var maxLen = Math.max(la.length, lb.length);
     if (maxLen === 0) return 1;
     return 1 - levenshteinDistance(la, lb) / maxLen;
+  }
+
+  // Splits a name into lowercase word tokens on any non-alphanumeric run -- "3D Coin Piles - SE by
+  // Xtudo" -> ["3d", "coin", "piles", "se", "by", "xtudo"].
+  function tokenize(name) {
+    return String(name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  }
+
+  // Inverse-document-frequency weight per token across `names` -- a token that shows up in most of
+  // this author's mod names (e.g. "pbr", "se", "by", "xtudo", "replacer") is naming boilerplate, not
+  // a distinguishing word, and should barely move the similarity score; a token that appears in only
+  // one or two names (e.g. "karin", "lunar", "himbo") is exactly what actually identifies the mod.
+  // +1 smoothing (both on document frequency and the final weight) keeps a token that appears in
+  // literally every name from hitting log(1) = 0 and vanishing outright -- it still counts, just
+  // barely, same reasoning as classic tf-idf smoothing.
+  function computeIdf(names) {
+    var docFreq = Object.create(null);
+    var total = names.length;
+    names.forEach(function (name) {
+      var seen = new Set(tokenize(name));
+      seen.forEach(function (tok) { docFreq[tok] = (docFreq[tok] || 0) + 1; });
+    });
+    var idf = Object.create(null);
+    Object.keys(docFreq).forEach(function (tok) {
+      idf[tok] = Math.log((total + 1) / (docFreq[tok] + 1)) + 1;
+    });
+    return idf;
+  }
+
+  // Weighted Sorensen-Dice coefficient over token sets, in [0, 1]. Real false positives found live
+  // (2026-09-05): plain character-level `similarity()` below scored "Karin follower or replacer
+  // fomod" vs. "Guards Armor Replacer PBR" at 47% and "Lunar Weapons Replacer" vs. the same candidate
+  // at 48%, purely because both share a long substring ("replacer") -- it has no concept of "word",
+  // let alone "common word". This scores shared BOILERPLATE tokens (pbr, replacer, se, by, xtudo, 4k,
+  // version numbers...) near-zero via the idf weights above, so two names that only coincidentally
+  // share generic vocabulary land near 0 instead of ~50%, while names sharing rare, actually-
+  // distinguishing tokens (author + set name, not just a common suffix) still score high.
+  function weightedTokenSimilarity(a, b, idf) {
+    var setA = new Set(tokenize(a));
+    var setB = new Set(tokenize(b));
+    if (setA.size === 0 || setB.size === 0) return 0;
+    var weightOf = function (tok) { return idf[tok] != null ? idf[tok] : 1; };
+    var sumA = 0; setA.forEach(function (t) { sumA += weightOf(t); });
+    var sumB = 0; setB.forEach(function (t) { sumB += weightOf(t); });
+    var sumShared = 0; setA.forEach(function (t) { if (setB.has(t)) sumShared += weightOf(t); });
+    if (sumA + sumB === 0) return 0;
+    return (2 * sumShared) / (sumA + sumB);
   }
 
   function priorityOf(rulesObj, name) {
@@ -121,11 +172,15 @@ var ModruleSyncEngine = (function () {
     // is removed from `remaining` here -- a tier-3 match isn't real until the user confirms it in the
     // reconciliation step (see claimCandidate below), and the same remaining author entry can
     // legitimately show up as a candidate for more than one still-unresolved row until then.
+    // idf is computed once over the FULL author corpus (not just `remaining`) so a token's weight
+    // reflects how common it is in this author's actual naming conventions, not just among whatever
+    // happens to still be unclaimed at this point in the pass.
+    var idf = computeIdf(Object.keys(authorRules));
     var remainingArr = Array.from(remaining);
     afterTier2.forEach(function (userName) {
       var candidates = remainingArr
         .map(function (authorName) {
-          return { authorName: authorName, score: similarity(userName, authorName), priority: priorityOf(authorRules, authorName) };
+          return { authorName: authorName, score: weightedTokenSimilarity(userName, authorName, idf), priority: priorityOf(authorRules, authorName) };
         })
         .filter(function (c) { return c.score >= floor; })
         .sort(function (a, b) { return b.score - a.score; })
@@ -204,6 +259,9 @@ var ModruleSyncEngine = (function () {
     DEFAULT_FUZZY_FLOOR: DEFAULT_FUZZY_FLOOR,
     normalizeName: normalizeName,
     similarity: similarity,
+    tokenize: tokenize,
+    computeIdf: computeIdf,
+    weightedTokenSimilarity: weightedTokenSimilarity,
     buildMatchReport: buildMatchReport,
     removeCandidateEverywhere: removeCandidateEverywhere,
     buildFinalRules: buildFinalRules,

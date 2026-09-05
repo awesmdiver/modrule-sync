@@ -5,6 +5,13 @@
   "roadmap": [],
   "shipped": [
     {
+      "id": "gemini-claude-md-audit-modrule-sync",
+      "tag": "chore",
+      "title": "Gemini consistency audit -- modrule-sync CLAUDE.md",
+      "doc": "CLAUDE.md",
+      "why": "Both findings real, applied directly: (1) 'sibling vortex-collection-tools repo' was technically imprecise -- the two projects sit under different parent folders (skyrim-modding/ vs vortex-tools/), so 'sibling' could misread as same-parent-directory when the real paths given are already correct workspace-relative paths; clarified the wording without changing any path. (2) 'gitignore it once real history exists' gave no concrete trigger -- replaced with a real one: add it to .gitignore the first time a real handoff actually gets written here, in that same commit."
+    },
+    {
       "id": "build-modrulesync-v1",
       "tag": "feature",
       "title": "Build ModruleSync v1 -- standalone static tool (separate repo, not this app)",

@@ -12,8 +12,11 @@ an end-user apply a mod collection author's own curated
 [PGPatcher](https://github.com/hakasapl/PGPatcher) `modrules.json` priority order onto their own
 freshly-generated file. Everything happens client-side — nothing uploaded ever leaves the browser.
 
-Full design history lives in the sibling `vortex-collection-tools` repo, since that's where this idea
-originated and got spec'd/mocked/named before this repo existed:
+Full design history lives in the sibling project `vortex-collection-tools`
+(`vortex-tools/vortex-collection-tools/`, a different parent folder than this repo's own
+`skyrim-modding/` — "sibling" here means sibling *project* in this workspace, not a sibling
+directory), since that's where this idea originated and got spec'd/mocked/named before this repo
+existed:
 
 - **Spec**: `vortex-tools/vortex-collection-tools/design/SPEC-pgpatcher-priority-merge-tool.md` —
   matching algorithm (4 confidence tiers), the canonical-name rule, merge scope, UI flow, why this has
@@ -40,5 +43,7 @@ matching engine, the merge format) — not yet, since nothing's built here.
 ## End every task with a handoff
 
 Per the workspace's own two-seat workflow, write a wrap-up to this repo's own
-`prompts/handoff-latest.md` (overwrite each time — ephemeral, gitignore it once real history exists,
-matching every other tracked project in this workspace).
+`prompts/handoff-latest.md` (overwrite each time — ephemeral). Add it to `.gitignore` the first time a
+real handoff actually gets written here (in that same commit) — nothing's been built in this repo yet,
+so the file doesn't exist and the rule hasn't triggered, matching every other tracked project in this
+workspace.

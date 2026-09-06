@@ -15,7 +15,13 @@ var ModruleSyncEngine = (function () {
   // "replacer", regardless of whether that word is actually distinguishing. Lowered once the fuzzy
   // tier switched to weightedTokenSimilarity below, which doesn't have this failure mode -- an
   // unrelated pair sharing only generic/common words now scores near 0, not 45-50%.
-  var DEFAULT_FUZZY_FLOOR = 0.4;
+  // Tuned against the real false positives found live (2026-09-05: "Jesters of Skyrim" -> "Scarves
+  // of Skyrim - PBR", "MP_DX Stella Mithril Armor PBR" -> "Inquisitor Armor PBR", "Cathedral - 3D
+  // Clovers" -> "Cathedral - 3D Pine Shrubs", etc.) after fixing the unseen-token weight bug above --
+  // with that fix, every one of those false positives scores 48% or below, while every known-good
+  // match (including deliberately awkward ones like "Chicken and Chicks PBR" -> "Chicken PBR") scores
+  // 60%+. 0.55 sits in the middle of that real gap.
+  var DEFAULT_FUZZY_FLOOR = 0.55;
   var MAX_CANDIDATES = 5;
 
   // Spec's own exact regex: strip a trailing run of space-separated numeric/version-ish tokens, then
@@ -90,6 +96,17 @@ var ModruleSyncEngine = (function () {
     Object.keys(docFreq).forEach(function (tok) {
       idf[tok] = Math.log((total + 1) / (docFreq[tok] + 1)) + 1;
     });
+    // Weight for a token this corpus has NEVER seen at all (df=0) -- same smoothed formula, not an
+    // arbitrary flat default. Real bug found live (2026-09-05): weightedTokenSimilarity below used to
+    // fall back to a flat weight of 1 for any token missing from this map, which is exactly every
+    // word that's unique to the OTHER side (e.g. a word only the user's mod name uses, never the
+    // author's) -- precisely the proper-noun/identity words ("jesters", "mithril", "stella") that
+    // should count the MOST. A flat 1 made them count less than merely-uncommon author words like
+    // "northern" (df=4, weight ~6.6), so two unrelated mods could still score high purely on shared
+    // common vocabulary while their real distinguishing words were underweighted. __unseen isn't a
+    // token tokenize() can ever produce (it splits on non-alphanumeric runs), so it's a safe sentinel
+    // key on the same plain object.
+    idf.__unseen = Math.log(total + 1) + 1;
     return idf;
   }
 
@@ -105,7 +122,8 @@ var ModruleSyncEngine = (function () {
     var setA = new Set(tokenize(a));
     var setB = new Set(tokenize(b));
     if (setA.size === 0 || setB.size === 0) return 0;
-    var weightOf = function (tok) { return idf[tok] != null ? idf[tok] : 1; };
+    var unseenWeight = idf && idf.__unseen != null ? idf.__unseen : 1;
+    var weightOf = function (tok) { return idf[tok] != null ? idf[tok] : unseenWeight; };
     var sumA = 0; setA.forEach(function (t) { sumA += weightOf(t); });
     var sumB = 0; setB.forEach(function (t) { sumB += weightOf(t); });
     var sumShared = 0; setA.forEach(function (t) { if (setB.has(t)) sumShared += weightOf(t); });
@@ -192,6 +210,10 @@ var ModruleSyncEngine = (function () {
         newMods.push(userName);
       }
     });
+
+    // Highest-confidence rows first -- lets the user clear the easy, obviously-right confirmations
+    // in one pass before wading into the genuinely ambiguous low-percentage ones at the bottom.
+    review.sort(function (a, b) { return b.candidates[0].score - a.candidates[0].score; });
 
     return { exact: exact, normalized: normalized, review: review, newMods: newMods };
   }

@@ -66,6 +66,9 @@ h2 { font-size: 16px; margin: 0 0 4px; }
 }
 .callout { padding: 12px 14px; border-radius: 8px; font-size: 13px; margin-top: 16px; }
 .callout--warning { background: var(--warning-bg); border: 1px solid var(--warning); color: var(--text); }
+.callout--success { background: var(--success-bg); border: 1px solid var(--success); color: var(--text); }
+.callout__title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+.callout p { margin: 0; }
 
 /* ---- 1. Upload screen ---- */
 .upload-row { display: flex; gap: 20px; margin: 20px 0 6px; }
@@ -179,10 +182,3 @@ h2 { font-size: 16px; margin: 0 0 4px; }
 .pgp-selcount { font-size: 11.5px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
 .pgp-unchecked-warning { font-size: 11.5px; color: var(--warning); white-space: nowrap; font-weight: 600; }
 
-/* ---- 5. Download ---- */
-.download-card {
-  text-align: center; padding: 36px 20px; background: var(--success-bg);
-  border: 1px solid var(--success); border-radius: 12px;
-}
-.download-card__title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-.download-card__hint { color: var(--text-muted); font-size: 13px; margin-bottom: 18px; }

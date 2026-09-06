@@ -193,13 +193,17 @@
 
   <!-- ============ 5. Download ============ -->
   <section id="screenDownload" class="screen hidden">
-    <div class="download-card">
-      <div class="download-card__title">✅ Your merged modrules.json is ready</div>
-      <div class="download-card__hint">Drop it straight into PGPatcher's own cfg folder.</div>
-      <a class="btn" id="downloadBtn" download="modrules.json">⬇ Download modrules.json</a>
+    <!-- Standard callout shape (2026-09-06 fix, director's own catch: this used to be a one-off
+         centered .download-card, not this project's own established .callout look) + the same
+         right-justified .upload-actions bar the Upload screen's own buttons already use, matching
+         the same fix already made on vortex-collection-tools' own build-success screen. -->
+    <div class="callout callout--success">
+      <div class="callout__title">🎉 Merged File Ready</div>
+      <p>Return to Vortex Collection Tools and click <strong>Import Merged File</strong> to load your updated configuration, including the mod author's selections and priority order.</p>
     </div>
-    <div class="upload-actions" style="justify-content:center;">
+    <div class="upload-actions">
       <button type="button" class="btn btn--ghost" id="startOverBtn">Start over</button>
+      <a class="btn" id="downloadBtn" download="modrules.json">⬇ Download modrules.json</a>
     </div>
   </section>
 

@@ -38,6 +38,7 @@ var msSelected = new Set();   // keys are `${panel}:${name}`
 var msLastClicked = null;     // { panel, name } -- shift-click anchor
 var msDragging = null;        // { names, fromPanel }
 var msDownloadUrl = null;     // last-created object URL, revoked on rebuild/reset
+var msLastSearchValue = {};   // panel -> last-seen search box value, for the scroll-to-match guard below
 
 // ---------- Upload screen ----------
 function showUploadError(message) {
@@ -528,6 +529,14 @@ function msToggleEnabled(panel, name) {
 function msRenderList(panel) {
   var container = document.getElementById(msPanelId(panel, 'List'));
   var filter = document.getElementById(msPanelId(panel, 'SearchInput')).value.trim().toLowerCase();
+  // Search-click/drag autoscroll fix, ported from the real Load Order Editor's own identical bug
+  // (queue: pgpatcher-search-click-autoscroll) -- this file never got the fix when it was ported.
+  // Only a REAL search-text change earns the scroll-to-first-match jump below; msRenderSortAll gets
+  // called for all sorts of OTHER reasons (a click, a drop, a toggle) that leave the search box's own
+  // value untouched, and re-snapping the view to the first match on every one of those made dragging
+  // a row while a filter was active look completely broken -- the view yanked itself away mid-drag.
+  var searchChanged = msLastSearchValue[panel] !== filter;
+  msLastSearchValue[panel] = filter;
   container.innerHTML = '';
   var names = msPanelList(panel);
   var firstMatchRow = null;
@@ -618,7 +627,18 @@ function msRenderList(panel) {
     container.appendChild(row);
   });
 
-  if (firstMatchRow) firstMatchRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  // "No matches" feedback -- real confusion found live (2026-09-06): searching for a term with zero
+  // real matches left the list looking untouched (nothing scrolled, nothing highlighted), which read
+  // as "search is broken" rather than "search correctly found nothing". A row that happened to still
+  // be selected from an earlier click made this worse -- its own blue selection outline looked like a
+  // match highlight even though it had nothing to do with the current search text.
+  if (filter && !firstMatchRow) {
+    var noMatch = document.createElement('div');
+    noMatch.className = 'pgp-row__no-match';
+    noMatch.textContent = 'No matching mods.';
+    container.appendChild(noMatch);
+  }
+  if (searchChanged && firstMatchRow) firstMatchRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
   container.addEventListener('dragover', function (e) { e.preventDefault(); });
   container.addEventListener('drop', function (e) {
     e.preventDefault();

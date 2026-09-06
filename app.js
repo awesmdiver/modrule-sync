@@ -497,7 +497,23 @@ function initializeSortState() {
   rankedEntries.forEach(function (e) { msTags.set(e.name, e.tag); });
 
   var rankedSet = new Set(msRankedNames);
-  msUnrankedNames = Object.keys(msUserRules).filter(function (name) { return !rankedSet.has(name); });
+  // Real data, director's own live testing (2026-09-06): of 1559 unranked mods in a real export, 497
+  // were `patchable: false` in the user's own uploaded file -- vortex-collection-tools' own Load
+  // Order Editor already determined, from real mesh/shader data, that these could never be patched
+  // regardless of anything the author or this tool does. Pure noise with zero reason to ever drag
+  // one into the ranked list. Same `patchable === false` convention already used in match-engine.js
+  // (see its own tier-3 loop) -- a missing field imposes no extra restriction, so a plain native
+  // PGPatcher modrules.json (never exported via this tool's own Load Order Editor, no `patchable`
+  // field at all) still shows its full unranked list unfiltered, same as before this change.
+  // buildFinalRules only ever writes an entry for a name in msRankedNames or msUnrankedNames, so a
+  // mod excluded here (and never a ranked match either) gets NO entry at all in the final downloaded
+  // file -- exactly what pgpApplyImportedModrules's own "a name with no entry is left completely
+  // untouched" already expects for a mod that was never a real patch candidate to begin with.
+  msUnrankedNames = Object.keys(msUserRules).filter(function (name) {
+    if (rankedSet.has(name)) return false;
+    var entry = msUserRules[name];
+    return !(entry && entry.patchable === false);
+  });
 
   msEnabled = new Map();
   Object.keys(msUserRules).forEach(function (name) {

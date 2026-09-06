@@ -218,7 +218,20 @@ var ModruleSyncEngine = (function () {
     // happens to still be unclaimed at this point in the pass.
     var idf = computeIdf(Object.keys(authorRules));
     var remainingArr = Array.from(remaining);
-    afterTier2.forEach(function (userName) {
+    // Real bug, director-caught live (2026-09-06): the patchable:false check further down only ever
+    // ran as a FALLBACK, after scoring already happened -- so a disabled/non-patchable leftover
+    // entry that happened to score above the floor against ANY author entry (even a wrong one)
+    // still slipped into `review` as a real row to manually reject. Filtered out here, unconditionally,
+    // before tier-3 scoring runs at all -- same destination (silently dropped, tracked nowhere) a
+    // zero-candidate patchable:false entry already reached via that fallback branch, just applied
+    // regardless of score. Confirmed real: a stale disabled duplicate ("Tomato's Whiterun Remake -
+    // PBR - 2k...", patchable:false) scored 79% against its own author's real entry -- high enough
+    // that once the ACTIVE variant claimed that same author entry via removeCandidateEverywhere,
+    // this row's own next-best candidate was a completely unrelated mod, dangling a wrong suggestion
+    // for an entry that was never real to begin with.
+    afterTier2.filter(function (userName) {
+      return !(userRules[userName] && userRules[userName].patchable === false);
+    }).forEach(function (userName) {
       // Real bug found live (2026-09-06): userName went into weightedTokenSimilarity RAW, never
       // normalized first, so a typical user-side name like "Tomato's Whiterun Remake - PBR - 4k
       // 173747 2.3.1 2026" tokenizes with its trailing Nexus mod id/version/year as their own

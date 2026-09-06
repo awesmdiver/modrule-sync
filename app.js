@@ -203,7 +203,14 @@ function msRenderReconcile() {
   var container = document.getElementById('reconcileRows');
   container.innerHTML = '';
 
-  msReport.review.forEach(function (row) {
+  // Sorted alphabetically by "Your mod" (director's own request, live testing) -- a COPY, same
+  // convention bucketExactList/bucketNormalizedList already use above, never msReport.review
+  // itself: candidate counts, the Continue button's pending-count nudge, and
+  // removeCandidateEverywhere all still need the underlying array's own identity/order untouched.
+  // Puts near-duplicate names (a "- 2k"/"- 4k" variant pair, say) next to each other on screen --
+  // exactly the situation this reconciliation screen most needs extra scrutiny for (see this same
+  // session's own patchable-false leak, which was harder to notice for exactly this reason).
+  msReport.review.slice().sort(function (a, b) { return a.userName.localeCompare(b.userName); }).forEach(function (row) {
     var stateClass = row.status === 'confirmed' ? ' reconcile-row--confirmed'
       : row.status === 'declined' ? ' reconcile-row--declined'
       : (row.candidates.length === 0 ? ' reconcile-row--none' : '');

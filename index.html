@@ -154,6 +154,11 @@
           <button type="button" class="pgp-link-btn" id="rankedInvertBtn">Invert selection</button>
           <button type="button" class="pgp-link-btn" id="rankedClearSelBtn">Clear selection</button>
           <span class="pgp-selcount" id="rankedSelectionCount"></span>
+          <!-- Real complaint, live (2026-09-06): the unchecked toggle has no bulk check/clear/invert
+               and no way to filter to just unchecked rows, so an unchecked mod buried mid-list is easy
+               to miss without scrolling the whole panel. A small at-a-glance count is the simplest fix
+               that doesn't require a bigger UI change. -->
+          <span class="pgp-unchecked-warning hidden" id="rankedUncheckedWarning"></span>
         </div>
         <div class="pgp-col-header">
           <span style="width:14px;"></span><span style="width:14px;"></span><span style="width:30px;">#</span><span style="flex:1;">Mod</span>

@@ -694,6 +694,12 @@ function msRenderSortAll() {
     var n = Array.from(msSelected).filter(function (sk) { return sk.indexOf(panel + ':') === 0; }).length;
     document.getElementById(msPanelId(panel, 'SelectionCount')).textContent = n > 0 ? (n + ' selected') : '';
   });
+  // At-a-glance unchecked count -- see this element's own HTML comment for the real complaint this
+  // answers. Ranked-only: New Mods has no per-row checkbox at all.
+  var uncheckedCount = msRankedNames.filter(function (name) { return !msEnabled.get(name); }).length;
+  var warningEl = document.getElementById('rankedUncheckedWarning');
+  warningEl.textContent = uncheckedCount > 0 ? ('⚠ ' + uncheckedCount + ' unchecked') : '';
+  warningEl.classList.toggle('hidden', uncheckedCount === 0);
 }
 
 function msWireToolbar(panel) {

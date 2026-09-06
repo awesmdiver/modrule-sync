@@ -1,15 +1,34 @@
 {
   "project": "modrule-sync",
-  "inFlight": [],
-  "items": [],
+  "inFlight": [
+    {
+      "id": "sort-reconcile-rows-alphabetically",
+      "sentAt": "2026-09-06T20:21:11.179670600+00:00",
+      "method": "copy"
+    }
+  ],
+  "items": [
+    {
+      "id": "sort-reconcile-rows-alphabetically",
+      "tag": "enhancement",
+      "title": "Sort the reconciliation screen alphabetically by \"Your mod\"",
+      "why": "Director's own live-testing ask: similarly-named mods (resolution/version variants especially) currently land far apart on the reconcile screen, making it hard to spot related entries. Alphabetical order groups them together, same pattern already used for the exact-match bucket render.",
+      "prompt": "# Sort the reconciliation screen alphabetically by \"Your mod\"\n\nDirector's own request, live-testing feedback: `msRenderReconcile()` in `app.js` currently renders\n`msReport.review` in whatever order `buildMatchReport` produced it (effectively user-file key\ninsertion order). The director wants it sorted alphabetically by `row.userName` (\"Your mod\") instead\n-- two similarly-named mods (e.g. a \"- 2k\" and \"- 4k\" variant of the same base name, or any other\nnear-duplicate naming) currently land in unrelated positions on the screen, making it hard to spot\nthat they're related at a glance. Sorting alphabetically puts near-duplicate names next to each\nother, which is exactly the situation this reconciliation screen most needs extra scrutiny for (see\nthe just-fixed patchable-false leak this same session, which was made harder to notice for exactly\nthis reason).\n\nNote this repo's existing convention for this exact kind of thing: `buildReport`'s exact-match\nbucket already sorts this way at render time --\n`msReport.exact.slice().sort(function (a, b) { return a.userName.localeCompare(b.userName); })`\n(app.js, around the `bucketExactList` render). Apply the same pattern to `msRenderReconcile`'s own\nrender loop: sort a COPY of `msReport.review` by `row.userName` (localeCompare, matching the\nexisting convention -- don't introduce ordinal comparison here, that's a different, deliberate\nconvention used elsewhere for a different reason, see PGPatcher's own real sort order) before\niterating to build rows. Do NOT mutate `msReport.review` itself in place -- other code (candidate\ncounts, the Continue-button pending-count check, `removeCandidateEverywhere`) may depend on it\nkeeping its original array identity/order; sort a `.slice()` the same way the exact-bucket render\nalready does.\n\n## Verify\n\n- Load a real report with several review-tier rows whose `userName`s are NOT already alphabetical\n  in the current UI, confirm they render in alphabetical order after the change.\n- Confirm confirming/declining/undoing a row still works correctly after the sort (i.e. the sort is\n  purely a render-order change, not a change to how rows are identified/matched/confirmed).\n- Confirm nothing else that reads `msReport.review`'s order (the Continue button's pending-count\n  nudge, `initializeSortState`) is affected -- it shouldn't be, since only the render loop's local\n  iteration order changes, not the underlying array.\n\nWrite the usual handoff when done.\n\n# Handoff — Sort the reconciliation screen alphabetically by \"Your mod\"\n",
+      "hold": false,
+      "holdReason": null,
+      "ready": true,
+      "awaitingOk": false,
+      "rust": false,
+      "geminiDraft": false,
+      "geminiImageDraft": false
+    }
+  ],
   "roadmap": [
     {
-      "id": "fix-fuzzy-tier-author-name-noise",
-      "tag": "bugfix",
       "title": "Also normalize authorName in tier-3 fuzzy scoring (same noise bug, other side)",
-      "detail": "Follow-up to fix-fuzzy-tier-raw-name-noise (shipped 2026-09-06). That fix normalized userName before weightedTokenSimilarity in buildMatchReport's tier-3 loop, but left authorName raw -- scoped that way on purpose, per the original task's own instructions. Terminal's handoff found the same premise doesn't fully hold on the author side: checked mod_author_modrules.json directly and 108 of 1406 real author entries (7.7%) carry the identical Nexus mod-id/version/year contamination (e.g. \"Adventurer's Backpack PBR 186790 1 2026\", \"Community Shaders 86492 1.8.4 2026\") -- these are held out as candidates using the raw, noisy string, so a genuinely-matching user mod could still score below the 0.55 floor purely because of shared-author-side junk tokens. Fix would be: weightedTokenSimilarity(normalizedUserName, normalizeName(authorName), idf) in the same tier-3 loop. Not chased down yet how many additional review candidates this would surface -- that's the first step whenever this gets picked up (same repro-then-fix-then-full-before/after-diff pattern as the userName fix).",
-      "why": "On hold per director (2026-09-06) -- worth doing but not urgent, capture so it isn't lost.",
-      "status": "pending"
+      "note": null,
+      "doc": null,
+      "pinned": false
     }
   ],
   "shipped": [
@@ -28,11 +47,18 @@
       "why": "Independently verified: match-engine.js implements every spec tier + the canonical-name rule correctly (read in full), including a real correctness fix beyond spec (removeCandidateEverywhere, preventing two rows from double-claiming the same author entry). Mockup class names confirmed carried into index.html/styles.css. Handoff documents genuine live browser verification (headless Node harness for the pure matching logic, a real Chrome pass for the full interactive UI, one real bug caught and fixed live). Commit 61c758e, pushed. GitHub Pages deliberately not enabled yet -- next step."
     },
     {
-      "id": "fix-fuzzy-tier-raw-name-noise",
-      "tag": "bugfix",
       "title": "Fix: fuzzy match tier compares raw names, diluting real word overlap with noise tokens",
       "doc": "match-engine.js",
+      "id": "fix-fuzzy-tier-raw-name-noise",
+      "tag": "bugfix",
       "why": "Verified independently: re-ran the real author + user files against the fixed engine, reproduced the exact same before/after numbers the handoff claimed (review 20->22, newMods 1042->1041, exact/normalized untouched), and confirmed the repro mod now surfaces as a real 0.61-score candidate with the correct author priority 999. Diff is minimal, scoped to tier 3 only, matching the fix instructions exactly."
+    },
+    {
+      "id": "fix-patchable-false-leaks-into-review",
+      "tag": "bugfix",
+      "title": "Fix: a disabled/patchable:false user entry can still surface as a real reconcile row",
+      "doc": "match-engine.js",
+      "why": "Verified independently: re-ran the real data through the fixed engine, confirmed the disabled leftover entry no longer appears in review or newMods, counts match the handoff exactly (172/4/21/1041), and the active 4k sibling's own candidate is byte-identical to before. Diff is a single filter() inserted before the tier-3 loop, matching the fix instructions exactly."
     }
   ]
 }

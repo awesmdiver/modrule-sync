@@ -136,6 +136,11 @@ var ModruleSyncEngine = (function () {
     return entry && typeof entry.priority === 'number' ? entry.priority : -1;
   }
 
+  function isEnabledIn(rulesObj, name) {
+    var entry = rulesObj[name];
+    return !!(entry && entry.enabled === true);
+  }
+
   // The core matching pass. authorRules/userRules are plain objects keyed by mod name (the same shape
   // a real modrules.json has: {priority, enabled, meshesignored}, plus an OPTIONAL `patchable` field
   // -- see the newMods loop's own comment below). Every key in userRules ends up in AT MOST ONE of the
@@ -150,12 +155,17 @@ var ModruleSyncEngine = (function () {
     var floor = opts.fuzzyFloor != null ? opts.fuzzyFloor : DEFAULT_FUZZY_FLOOR;
     var maxCandidates = opts.maxCandidates != null ? opts.maxCandidates : MAX_CANDIDATES;
 
-    // Author names not yet claimed. Restricted to entries the author actually curated a priority
-    // for (priority !== -1, i.e. enabled) -- the rest of a real modrules.json is just every mod
-    // PGPatcher scanned with nothing to transplant, and matching against those produced pure-noise
-    // candidates (a name coincidentally close to an unrelated, unconfigured mod).
+    // Author names not yet claimed. Restricted to entries the author BOTH curated a priority for AND
+    // currently has checked (priority !== -1 AND enabled === true) -- real bug found live
+    // (2026-09-06): priority alone isn't enough. Real PGPatcher only ever ASSIGNS a priority to a
+    // currently-enabled mod (ModSortDialog::updateMods, pgpatcher-fork: `if (mod->isEnabled)
+    // mod->priority = ...`) -- it never resets one back to -1 just because the mod got unchecked
+    // LATER. So a real author file can have a stale `{enabled: false, priority: 550}` entry left over
+    // from before they unchecked it -- confirmed live (mod_author_modrules.json's own "Dwemer
+    // Pipework Reworked 5": exactly this shape). Matching against a disabled entry like that would
+    // transplant a priority the author is no longer actually curating.
     var remaining = new Set(Object.keys(authorRules).filter(function (name) {
-      return priorityOf(authorRules, name) !== -1;
+      return priorityOf(authorRules, name) !== -1 && isEnabledIn(authorRules, name);
     }));
     var exact = [];
     var normalized = [];

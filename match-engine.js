@@ -219,9 +219,19 @@ var ModruleSyncEngine = (function () {
     var idf = computeIdf(Object.keys(authorRules));
     var remainingArr = Array.from(remaining);
     afterTier2.forEach(function (userName) {
+      // Real bug found live (2026-09-06): userName went into weightedTokenSimilarity RAW, never
+      // normalized first, so a typical user-side name like "Tomato's Whiterun Remake - PBR - 4k
+      // 173747 2.3.1 2026" tokenizes with its trailing Nexus mod id/version/year as their own
+      // tokens ("173747", "2", "3", "1", "2026") -- noise that can never match anything in a clean
+      // author-curated name, but still counts in the Sorensen-Dice denominator, diluting the real
+      // word overlap. Tier 2 already strips this exact noise via normalizeName() before comparing;
+      // tier 3 just never got the same treatment. Confirmed against real data: this exact pair
+      // scored 0.39 (below the 0.55 floor, so it silently dropped to New Mods with zero visibility)
+      // raw, 0.61 (a real, human-reviewable candidate) with userName normalized first.
+      var normalizedUserName = normalizeName(userName);
       var candidates = remainingArr
         .map(function (authorName) {
-          return { authorName: authorName, score: weightedTokenSimilarity(userName, authorName, idf), priority: priorityOf(authorRules, authorName) };
+          return { authorName: authorName, score: weightedTokenSimilarity(normalizedUserName, authorName, idf), priority: priorityOf(authorRules, authorName) };
         })
         .filter(function (c) { return c.score >= floor; })
         .sort(function (a, b) { return b.score - a.score; })

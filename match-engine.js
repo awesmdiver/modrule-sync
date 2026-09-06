@@ -164,7 +164,17 @@ var ModruleSyncEngine = (function () {
     // from before they unchecked it -- confirmed live (mod_author_modrules.json's own "Dwemer
     // Pipework Reworked 5": exactly this shape). Matching against a disabled entry like that would
     // transplant a priority the author is no longer actually curating.
+    // Also honors an OPTIONAL `patchable` field on the author's own entries, same as the user-side
+    // New Mods filter below -- the author may have supplied a plain, native PGPatcher-generated
+    // modrules.json (no `patchable` field at all -- vortex-collection-tools' own Load Order Editor
+    // produces byte-identical output to real PGPatcher, so this is functionally the same case), OR
+    // they may have used that same editor's own "Export for ModruleSync" button, which stamps a real
+    // `patchable` flag from actual mesh/shader data onto each entry. Support both: `patchable ===
+    // false` excludes an entry even if it otherwise has a real priority + enabled (defense in depth
+    // for a genuinely contradictory/stale combination); a missing field imposes no extra restriction.
     var remaining = new Set(Object.keys(authorRules).filter(function (name) {
+      var entry = authorRules[name];
+      if (entry && entry.patchable === false) return false;
       return priorityOf(authorRules, name) !== -1 && isEnabledIn(authorRules, name);
     }));
     var exact = [];

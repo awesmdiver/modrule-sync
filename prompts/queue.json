@@ -40,11 +40,18 @@
       "why": "Verified independently: re-ran the real data through the fixed engine, confirmed the disabled leftover entry no longer appears in review or newMods, counts match the handoff exactly (172/4/21/1041), and the active 4k sibling's own candidate is byte-identical to before. Diff is a single filter() inserted before the tier-3 loop, matching the fix instructions exactly."
     },
     {
-      "id": "sort-reconcile-rows-alphabetically",
-      "tag": "enhancement",
       "title": "Sort the reconciliation screen alphabetically by \"Your mod\"",
       "doc": "app.js",
+      "id": "sort-reconcile-rows-alphabetically",
+      "tag": "enhancement",
       "why": "Verified: diff is exactly the one-line change requested (localeCompare sort on a .slice(), matching the existing exact/normalized bucket convention). Confirmed independently every other msReport.review usage in app.js (bucket count, Continue gate, pending-count nudge, removeCandidateEverywhere, confirm/decline/undo) reads the array directly, unaffected. Handoff includes real live-browser verification (confirm/undo/re-render all correct with the sort applied)."
+    },
+    {
+      "id": "filter-nonpatchable-from-newmods-panel",
+      "tag": "enhancement",
+      "title": "Filter patchable:false mods out of the sort screen's \"New Mods\" panel",
+      "doc": "app.js",
+      "why": "Verified independently: re-ran real data through the fixed logic, reproduced 1559->1062 exactly, confirmed zero patchable:false leaks in the filtered set, and confirmed 5 spot-checked excluded names correctly have no key at all in buildFinalRules' output (1238 total keys = 176 ranked + 1062 unranked, exact match). Diff matches the fix instructions exactly, including the missing-field fallback behavior."
     }
   ]
 }

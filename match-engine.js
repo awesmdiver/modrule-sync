@@ -137,11 +137,14 @@ var ModruleSyncEngine = (function () {
   }
 
   // The core matching pass. authorRules/userRules are plain objects keyed by mod name (the same shape
-  // a real modrules.json has: {priority, enabled, meshesignored}). Every key in userRules ends up in
-  // EXACTLY ONE of the four returned buckets -- exact, normalized, review, newMods -- a full
-  // partition, per the spec's own UI-flow section. Author-only entries (never matched at all) are
-  // simply never referenced by anything this returns -- callers only ever write into userRules' own
-  // key space (see buildFinalRules), so there's no separate "dropped" list to track.
+  // a real modrules.json has: {priority, enabled, meshesignored}, plus an OPTIONAL `patchable` field
+  // -- see the newMods loop's own comment below). Every key in userRules ends up in AT MOST ONE of the
+  // four returned buckets -- exact, normalized, review, newMods -- never more than one, per the spec's
+  // own UI-flow section; a mod explicitly marked `patchable: false` that also found no real match is
+  // the one case that lands in none of them at all (dropped, not a partition violation -- there's
+  // nothing useful to do with it either way). Author-only entries (never matched at all) are simply
+  // never referenced by anything this returns -- callers only ever write into userRules' own key space
+  // (see buildFinalRules), so there's no separate "dropped" list to track.
   function buildMatchReport(authorRules, userRules, opts) {
     opts = opts || {};
     var floor = opts.fuzzyFloor != null ? opts.fuzzyFloor : DEFAULT_FUZZY_FLOOR;
@@ -206,6 +209,20 @@ var ModruleSyncEngine = (function () {
 
       if (candidates.length > 0) {
         review.push({ userName: userName, candidates: candidates, status: 'pending', chosenAuthorName: null });
+      } else if (userRules[userName] && userRules[userName].patchable === false) {
+        // Real complaint, live (2026-09-06): the New Mods bucket was listing literally every
+        // unmatched mod, the vast majority of which can never take a real PGPatcher priority at all
+        // (plain followers, animations, quest mods -- no meshes or shaders whatsoever). ModruleSync
+        // itself has no way to know that -- it only ever reads modrules.json's own priority/enabled/
+        // meshesignored fields, never PGPatcher's real mesh/shader scan. `patchable` is an OPTIONAL
+        // field the real Load Order Editor can now stamp onto each entry when the end-user exports
+        // "for ModruleSync" instead of a plain modrules.json (vortex-collection-tools' own
+        // pgpatcherModruleSyncExportBtn) -- computed from the exact same hasMeshes-or-any-shader rule
+        // that editor already uses to decide what it displays at all. Explicitly `false` means real,
+        // known data says this mod can never be patched, so it's dropped entirely rather than listed
+        // as a drag candidate for a priority that would never do anything. A plain vanilla
+        // modrules.json (no `patchable` field on this entry, or missing entirely) falls through to
+        // the unfiltered behavior below -- this is a strictly optional, additive filter.
       } else {
         newMods.push(userName);
       }

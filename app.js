@@ -228,7 +228,20 @@ function msRenderReconcile() {
 
     var candDiv = document.createElement('div');
     candDiv.className = 'reconcile-row__candidate';
-    if (row.candidates.length === 0) {
+    if (row.candidates.length === 0 && row.status === 'confirmed') {
+      // Real bug found live (2026-09-06): a zero-candidate row confirmed via the manual search
+      // override (msToggleAuthorSearch) still fell into the "no candidate" branch below, which never
+      // checked for 'confirmed' at all -- showing "No candidate found..." right next to a green
+      // Confirmed badge, with no sign of what was actually picked.
+      var pickedLabel = document.createElement('div');
+      pickedLabel.className = 'reconcile-row__label';
+      pickedLabel.textContent = 'Matched to';
+      candDiv.appendChild(pickedLabel);
+      var pickedName = document.createElement('div');
+      pickedName.className = 'reconcile-row__name';
+      pickedName.textContent = row.chosenAuthorName;
+      candDiv.appendChild(pickedName);
+    } else if (row.candidates.length === 0) {
       var noneMsg = document.createElement('div');
       noneMsg.textContent = row.status === 'declined'
         ? 'Marked as a different mod — will stay unranked.'

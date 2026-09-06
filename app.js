@@ -762,11 +762,19 @@ document.getElementById('startOverBtn').addEventListener('click', function () {
   msReport = null; msReconcileWarned = false;
   msRankedNames = []; msUnrankedNames = []; msOriginalRankedOrder = [];
   msTags = new Map(); msEnabled = new Map(); msSelected = new Set(); msLastClicked = null; msDragging = null;
+  msLastSearchValue = {};
   if (msDownloadUrl) { URL.revokeObjectURL(msDownloadUrl); msDownloadUrl = null; }
   resetDropCard('author');
   resetDropCard('user');
   document.getElementById('authorFileInput').value = '';
   document.getElementById('userFileInput').value = '';
+  // Real bug found live (2026-09-06): this reset every piece of DATA state but never touched the
+  // Sort screen's own search boxes -- since those DOM elements persist across the whole page (never
+  // destroyed/recreated), a leftover filter from a PREVIOUS run stayed typed in when the user went
+  // through the flow again, silently hiding rows in the new, unrelated file until they noticed and
+  // cleared it by hand.
+  document.getElementById('rankedSearchInput').value = '';
+  document.getElementById('unrankedSearchInput').value = '';
   hideUploadError();
   updateBuildReportBtn();
   showScreen('screenUpload');

@@ -229,9 +229,11 @@ function msRenderReconcile() {
     var candDiv = document.createElement('div');
     candDiv.className = 'reconcile-row__candidate';
     if (row.candidates.length === 0) {
-      candDiv.textContent = row.status === 'declined'
+      var noneMsg = document.createElement('div');
+      noneMsg.textContent = row.status === 'declined'
         ? 'Marked as a different mod — will stay unranked.'
         : 'No candidate found above the match threshold (another row may have already claimed it).';
+      candDiv.appendChild(noneMsg);
     } else {
       var top = row.candidates[0];
       var label = document.createElement('div');
@@ -262,6 +264,25 @@ function msRenderReconcile() {
         multi.appendChild(link);
         candDiv.appendChild(multi);
       }
+    }
+    // Manual override -- real gap found live (2026-09-06): the scored candidates can rank the WRONG
+    // entry above the real one (shared author-naming boilerplate can outweigh one genuinely
+    // distinctive shared word), or there may be no candidate at all above the floor even though a
+    // real match exists under a very different-looking name (a color/variant rename, a typo). Shown
+    // on every still-pending row, candidates or not -- this is the fallback that always works
+    // regardless of what the scorer did.
+    if (row.status === 'pending') {
+      var searchRow = document.createElement('div');
+      searchRow.className = 'reconcile-row__multi';
+      var searchLink = document.createElement('a');
+      searchLink.href = '#';
+      searchLink.textContent = '🔍 Search all of the author’s mods…';
+      searchLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        msToggleAuthorSearch(row, candDiv);
+      });
+      searchRow.appendChild(searchLink);
+      candDiv.appendChild(searchRow);
     }
     div.appendChild(candDiv);
 
@@ -321,6 +342,67 @@ function msToggleCandidatePicker(row, candDiv) {
   candDiv.appendChild(picker);
 }
 
+// Every author name tier 3 was allowed to consider (match-engine.js's own `authorPool`), live-
+// filtered to exclude whatever any OTHER row has already confirmed this session -- exact/normalized
+// matches are already excluded from authorPool itself (claimed before tier 3 ever runs). Lets the
+// user recover from two real failure modes no amount of scoring-algorithm tuning fully closes: the
+// right candidate scoring below the floor (or below a same-author-series decoy), and a genuine typo/
+// rename between the two files. Text input, live-filtered as you type, closes on a pick.
+function msToggleAuthorSearch(row, candDiv) {
+  var existing = candDiv.querySelector('.reconcile-row__search');
+  if (existing) { existing.remove(); return; }
+
+  var wrap = document.createElement('div');
+  wrap.className = 'reconcile-row__search';
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'reconcile-row__search-input';
+  input.placeholder = 'Type to search the author’s full mod list…';
+  var results = document.createElement('div');
+  results.className = 'reconcile-row__search-results';
+
+  function claimedByOtherRows() {
+    var claimed = new Set();
+    msReport.review.forEach(function (r) {
+      if (r !== row && r.status === 'confirmed' && r.chosenAuthorName) claimed.add(r.chosenAuthorName);
+    });
+    return claimed;
+  }
+  function renderResults() {
+    var q = input.value.trim().toLowerCase();
+    var claimed = claimedByOtherRows();
+    var pool = msReport.authorPool.filter(function (name) { return !claimed.has(name); });
+    var matches = q ? pool.filter(function (name) { return name.toLowerCase().indexOf(q) !== -1; }) : pool;
+    results.innerHTML = '';
+    if (matches.length === 0) {
+      var none = document.createElement('div');
+      none.className = 'reconcile-row__search-empty';
+      none.textContent = 'No matching mods.';
+      results.appendChild(none);
+      return;
+    }
+    matches.slice(0, 50).forEach(function (name) {
+      var opt = document.createElement('div');
+      opt.className = 'reconcile-row__candidate-pick';
+      opt.textContent = name;
+      opt.addEventListener('click', function () { msConfirmReconcileRow(row, name); });
+      results.appendChild(opt);
+    });
+    if (matches.length > 50) {
+      var more = document.createElement('div');
+      more.className = 'reconcile-row__search-empty';
+      more.textContent = matches.length - 50 + ' more — keep typing to narrow it down.';
+      results.appendChild(more);
+    }
+  }
+  input.addEventListener('input', renderResults);
+  wrap.appendChild(input);
+  wrap.appendChild(results);
+  candDiv.appendChild(wrap);
+  renderResults();
+  input.focus();
+}
+
 function msResetReconcileNudge() {
   msReconcileWarned = false;
   document.getElementById('reconcileNudge').classList.add('hidden');
@@ -328,9 +410,15 @@ function msResetReconcileNudge() {
 
 function msConfirmReconcileRow(row, authorName) {
   var cand = row.candidates.filter(function (c) { return c.authorName === authorName; })[0];
+  // Real bug found live (2026-09-06): a manual search-pick (msToggleAuthorSearch) can confirm an
+  // authorName that was never one of this row's own scored candidates at all -- falling back to -1
+  // when `cand` isn't found would silently discard the real priority for exactly the case this
+  // manual override exists to rescue. Read it straight from the author's own file instead.
+  var authorEntry = msAuthorRules && msAuthorRules[authorName];
+  var fallbackPriority = authorEntry && typeof authorEntry.priority === 'number' ? authorEntry.priority : -1;
   row.status = 'confirmed';
   row.chosenAuthorName = authorName;
-  row.chosenPriority = cand ? cand.priority : -1;
+  row.chosenPriority = cand ? cand.priority : fallbackPriority;
   // Claim this author entry everywhere else so two different unmatched mods can never both end up
   // confirmed against the same author priority.
   ModruleSyncEngine.removeCandidateEverywhere(msReport.review, authorName, row.userName);

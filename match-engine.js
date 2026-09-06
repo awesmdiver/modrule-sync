@@ -252,7 +252,16 @@ var ModruleSyncEngine = (function () {
     // in one pass before wading into the genuinely ambiguous low-percentage ones at the bottom.
     review.sort(function (a, b) { return b.candidates[0].score - a.candidates[0].score; });
 
-    return { exact: exact, normalized: normalized, review: review, newMods: newMods };
+    // Real gap found live (2026-09-06): the scored candidates are only ever the top few by token
+    // similarity, and that score can genuinely rank the WRONG entry above the right one when the
+    // right one shares fewer of the author's own boilerplate naming tokens (confirmed real: "GTS -
+    // PBR VO - Holidays Fixes..." scored its real match, "PBR for GTS - Holidays PBR", at 50%, but a
+    // same-author-series decoy at 62%, purely on shared "GTS/PBR/1.1/2026" tokens neither name is
+    // actually about). No amount of algorithm tuning fully closes that -- the fix is letting the user
+    // manually search the full remaining pool themselves. `authorPool` is exactly that: every author
+    // name tier 3 was allowed to consider (already excludes exact/normalized-claimed entries),
+    // returned once so the UI can offer a live search across it without re-deriving this set itself.
+    return { exact: exact, normalized: normalized, review: review, newMods: newMods, authorPool: remainingArr.slice().sort() };
   }
 
   // Called once a reconciliation row is confirmed -- removes that author name from every OTHER still-

@@ -1,22 +1,38 @@
 {
   "project": "modrule-sync",
-  "inFlight": null,
+  "inFlight": [],
   "items": [],
-  "roadmap": [],
+  "roadmap": [
+    {
+      "id": "fix-fuzzy-tier-author-name-noise",
+      "tag": "bugfix",
+      "title": "Also normalize authorName in tier-3 fuzzy scoring (same noise bug, other side)",
+      "detail": "Follow-up to fix-fuzzy-tier-raw-name-noise (shipped 2026-09-06). That fix normalized userName before weightedTokenSimilarity in buildMatchReport's tier-3 loop, but left authorName raw -- scoped that way on purpose, per the original task's own instructions. Terminal's handoff found the same premise doesn't fully hold on the author side: checked mod_author_modrules.json directly and 108 of 1406 real author entries (7.7%) carry the identical Nexus mod-id/version/year contamination (e.g. \"Adventurer's Backpack PBR 186790 1 2026\", \"Community Shaders 86492 1.8.4 2026\") -- these are held out as candidates using the raw, noisy string, so a genuinely-matching user mod could still score below the 0.55 floor purely because of shared-author-side junk tokens. Fix would be: weightedTokenSimilarity(normalizedUserName, normalizeName(authorName), idf) in the same tier-3 loop. Not chased down yet how many additional review candidates this would surface -- that's the first step whenever this gets picked up (same repro-then-fix-then-full-before/after-diff pattern as the userName fix).",
+      "why": "On hold per director (2026-09-06) -- worth doing but not urgent, capture so it isn't lost.",
+      "status": "pending"
+    }
+  ],
   "shipped": [
     {
-      "id": "gemini-claude-md-audit-modrule-sync",
-      "tag": "chore",
       "title": "Gemini consistency audit -- modrule-sync CLAUDE.md",
       "doc": "CLAUDE.md",
+      "id": "gemini-claude-md-audit-modrule-sync",
+      "tag": "chore",
       "why": "Both findings real, applied directly: (1) 'sibling vortex-collection-tools repo' was technically imprecise -- the two projects sit under different parent folders (skyrim-modding/ vs vortex-tools/), so 'sibling' could misread as same-parent-directory when the real paths given are already correct workspace-relative paths; clarified the wording without changing any path. (2) 'gitignore it once real history exists' gave no concrete trigger -- replaced with a real one: add it to .gitignore the first time a real handoff actually gets written here, in that same commit."
     },
     {
-      "id": "build-modrulesync-v1",
-      "tag": "feature",
       "title": "Build ModruleSync v1 -- standalone static tool (separate repo, not this app)",
       "doc": "match-engine.js, app.js, index.html, styles.css",
+      "id": "build-modrulesync-v1",
+      "tag": "feature",
       "why": "Independently verified: match-engine.js implements every spec tier + the canonical-name rule correctly (read in full), including a real correctness fix beyond spec (removeCandidateEverywhere, preventing two rows from double-claiming the same author entry). Mockup class names confirmed carried into index.html/styles.css. Handoff documents genuine live browser verification (headless Node harness for the pure matching logic, a real Chrome pass for the full interactive UI, one real bug caught and fixed live). Commit 61c758e, pushed. GitHub Pages deliberately not enabled yet -- next step."
+    },
+    {
+      "id": "fix-fuzzy-tier-raw-name-noise",
+      "tag": "bugfix",
+      "title": "Fix: fuzzy match tier compares raw names, diluting real word overlap with noise tokens",
+      "doc": "match-engine.js",
+      "why": "Verified independently: re-ran the real author + user files against the fixed engine, reproduced the exact same before/after numbers the handoff claimed (review 20->22, newMods 1042->1041, exact/normalized untouched), and confirmed the repro mod now surfaces as a real 0.61-score candidate with the correct author priority 999. Diff is minimal, scoped to tier 3 only, matching the fix instructions exactly."
     }
   ]
 }

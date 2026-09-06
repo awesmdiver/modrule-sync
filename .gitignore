@@ -12,3 +12,6 @@ prompts/.session-log.json
 
 # SQLite hybrid-architecture spike index (derived + rebuildable -- BUILD-PROMPT-sqlite-hybrid-spike.md)
 prompts/.board-index.sqlite*
+
+# Per-item handoff snapshots (claude-workflow-board) -- which archived handoff belongs to which item
+prompts/.item-handoffs/
